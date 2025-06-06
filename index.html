@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水果得分小游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#F59E0B',
+                        danger: '#EF4444',
+                        neutral: '#6B7280',
+                        light: '#F3F4F6',
+                        dark: '#1F2937',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .fruit-card {
+                @apply relative bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden;
+            }
+            .score-animation {
+                @apply absolute text-2xl font-bold transition-all duration-1000 opacity-0;
+            }
+            .game-container {
+                @apply max-w-4xl mx-auto p-6 sm:p-10;
+            }
+            .game-card {
+                @apply bg-white rounded-2xl shadow-xl p-8 sm:p-10 transition-all duration-500;
+            }
+            .hint-message {
+                @apply text-neutral text-center mb-6 italic;
+            }
+            .character-container {
+                @apply relative h-64 w-full flex items-center justify-center mb-8 overflow-hidden;
+            }
+            .character {
+                @apply absolute transition-all duration-1000 opacity-0;
+            }
+            .character-dialog {
+                @apply absolute bg-white rounded-lg shadow-lg p-4 max-w-xs text-center opacity-0 transition-all duration-1000;
+            }
+            .character-dialog::after {
+                content: '';
+                @apply absolute w-4 h-4 bg-white transform rotate-45;
+            }
+            .cat {
+                @apply w-32 h-32;
+            }
+            .sparrow {
+                @apply w-24 h-24;
+            }
+            .broken-egg {
+                @apply w-20 h-20;
+            }
+            .animate-cat {
+                @apply bottom-0 opacity-100 transform translate-y-0;
+            }
+            .animate-sparrow {
+                @apply right-0 opacity-100 transform translate-x-0;
+            }
+            .animate-egg {
+                @apply top-0 opacity-100 transform translate-y-0;
+            }
+            .show-dialog {
+                @apply opacity-100 transform translate-y-0;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex flex-col">
+    <header class="py-6 text-center">
+        <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-dark text-shadow mb-2">水果得分小游戏</h1>
+        <p class="text-neutral text-lg">选择水果，累计得分！</p>
+    </header>
+    
+    <main class="flex-grow flex items-center justify-center">
+        <div class="game-container">
+            <div id="game-card" class="game-card">
+                <!-- 游戏信息 -->
+                <div class="flex flex-wrap justify-between items-center mb-8">
+                    <div class="mb-4 sm:mb-0">
+                        <p class="text-neutral font-medium">当前得分</p>
+                        <p id="current-score" class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-primary">0</p>
+                    </div>
+                    <div>
+                        <p class="text-neutral font-medium">当前局数</p>
+                        <p id="current-round" class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-accent">1/10</p>
+                    </div>
+                </div>
+                
+                <!-- 提示信息 -->
+                <div class="hint-message">
+                    <p>每局游戏中，水果的得分规则都是隐藏的。选择水果后才能知道获得了多少分！</p>
+                </div>
+                
+                <!-- 水果选择区 -->
+                <div id="fruits-container" class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <!-- 水果卡片将通过JS动态生成 -->
+                </div>
+                
+                <!-- 游戏结果 -->
+                <div id="game-result" class="hidden mt-8 text-center">
+                    <h2 id="result-title" class="text-[clamp(1.5rem,3vw,2rem)] font-bold mb-4"></h2>
+                    <p id="result-message" class="text-lg mb-6"></p>
+                    
+                    <!-- 角色和对话框容器 -->
+                    <div class="character-container">
+                        <!-- 小猫角色 -->
+                        <div id="cat-character" class="character cat bottom-[-100px]">
+                            <div class="w-full h-full bg-yellow-300 rounded-full flex items-center justify-center">
+                                <i class="fa fa-paw text-yellow-700 text-5xl"></i>
+                            </div>
+                        </div>
+                        <!-- 小猫对话框 -->
+                        <div id="cat-dialog" class="character-dialog left-1/2 -translate-x-1/2 bottom-20 translate-y-10">
+                            <p class="font-medium">恭喜你！通关！</p>
+                            <div class="absolute bottom-[-8px] left-1/2 -translate-x-1/2 w-4 h-4 bg-white transform rotate-45"></div>
+                        </div>
+                        
+                        <!-- 小麻雀角色 -->
+                        <div id="sparrow-character" class="character sparrow right-[-100px]">
+                            <div class="w-full h-full bg-blue-300 rounded-full flex items-center justify-center">
+                                <i class="fa fa-paper-plane-o text-blue-700 text-4xl"></i>
+                            </div>
+                        </div>
+                        <!-- 小麻雀对话框 -->
+                        <div id="sparrow-dialog" class="character-dialog right-1/4 bottom-1/2 translate-y-10">
+                            <p class="font-medium">不错哦，但还可以再接再励！</p>
+                            <div class="absolute bottom-[-8px] left-1/4 w-4 h-4 bg-white transform rotate-45"></div>
+                        </div>
+                        
+                        <!-- 碎鸡蛋角色 -->
+                        <div id="egg-character" class="character broken-egg top-[-100px]">
+                            <div class="w-full h-full bg-red-300 rounded-full flex items-center justify-center">
+                                <i class="fa fa-question text-red-700 text-3xl"></i>
+                            </div>
+                        </div>
+                        <!-- 碎鸡蛋对话框 -->
+                        <div id="egg-dialog" class="character-dialog left-1/2 -translate-x-1/2 top-20 -translate-y-10">
+                            <p class="font-medium">不怎么样嘛~</p>
+                            <div class="absolute top-[-8px] left-1/2 -translate-x-1/2 w-4 h-4 bg-white transform rotate-45"></div>
+                        </div>
+                    </div>
+                    
+                    <button id="play-again-btn" class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg">
+                        再玩一次
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="py-4 text-center text-neutral text-sm">
+        <p>© 2023 水果得分小游戏 | 累计得分，挑战最高分！</p>
+    </footer>
+    
+    <script>
+        // 游戏状态
+        let gameState = {
+            currentRound: 1,
+            totalRounds: 10,
+            score: 0,
+            roundScores: [],
+            rules: {
+                apple: 0,
+                banana: 0,
+                pear: 0
+            },
+            isGameOver: false
+        };
+        
+        // 水果数据
+        const fruits = [
+            {
+                name: 'apple',
+                displayName: '苹果',
+                icon: '<i class="fa fa-apple text-red-500 text-5xl"></i>',
+                color: 'bg-red-100'
+            },
+            {
+                name: 'banana',
+                displayName: '香蕉',
+                icon: '<i class="fa fa-lemon-o text-yellow-400 text-5xl"></i>',
+                color: 'bg-yellow-100'
+            },
+            {
+                name: 'pear',
+                displayName: '梨子',
+                icon: '<i class="fa fa-lemon-o text-green-400 text-5xl"></i>',
+                color: 'bg-green-100'
+            }
+        ];
+        
+        // 初始化游戏
+        function initGame() {
+            gameState = {
+                currentRound: 1,
+                totalRounds: 10,
+                score: 0,
+                roundScores: [],
+                rules: {},
+                isGameOver: false
+            };
+            
+            // 隐藏所有角色和对话框
+            document.getElementById('cat-character').className = 'character cat bottom-[-100px]';
+            document.getElementById('cat-dialog').className = 'character-dialog left-1/2 -translate-x-1/2 bottom-20 translate-y-10 opacity-0';
+            document.getElementById('sparrow-character').className = 'character sparrow right-[-100px]';
+            document.getElementById('sparrow-dialog').className = 'character-dialog right-1/4 bottom-1/2 translate-y-10 opacity-0';
+            document.getElementById('egg-character').className = 'character broken-egg top-[-100px]';
+            document.getElementById('egg-dialog').className = 'character-dialog left-1/2 -translate-x-1/2 top-20 -translate-y-10 opacity-0';
+            
+            document.getElementById('game-result').classList.add('hidden');
+            document.getElementById('fruits-container').classList.remove('hidden');
+            
+            generateRules();
+            renderGameState();
+            renderFruits();
+        }
+        
+        // 生成随机规则
+        function generateRules() {
+            gameState.rules = {
+                apple: getRandomScore(),
+                banana: getRandomScore(),
+                pear: getRandomScore()
+            };
+        }
+        
+        // 获取随机得分（加分不超过3分，扣分不超过4分）
+        function getRandomScore() {
+            // 70%概率为加分，30%概率为扣分
+            const isPositive = Math.random() > 0.3;
+            if (isPositive) {
+                // 加分：1-3分
+                return Math.floor(Math.random() * 3) + 1;
+            } else {
+                // 扣分：-1到-4分
+                return -(Math.floor(Math.random() * 4) + 1);
+            }
+        }
+        
+        // 渲染游戏状态
+        function renderGameState() {
+            document.getElementById('current-score').textContent = gameState.score;
+            document.getElementById('current-round').textContent = `${gameState.currentRound}/${gameState.totalRounds}`;
+        }
+        
+        // 渲染水果卡片
+        function renderFruits() {
+            const container = document.getElementById('fruits-container');
+            container.innerHTML = '';
+            
+            fruits.forEach(fruit => {
+                const card = document.createElement('div');
+                card.className = `fruit-card ${fruit.color}`;
+                card.dataset.fruit = fruit.name;
+                
+                card.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full">
+                        <div class="mb-4">${fruit.icon}</div>
+                        <h3 class="text-xl font-semibold text-dark">${fruit.displayName}</h3>
+                        <div class="mt-2 score-animation" id="score-${fruit.name}"></div>
+                    </div>
+                `;
+                
+                card.addEventListener('click', () => selectFruit(fruit.name));
+                container.appendChild(card);
+            });
+        }
+        
+        // 选择水果
+        function selectFruit(fruitName) {
+            if (gameState.isGameOver) return;
+            
+            const score = gameState.rules[fruitName];
+            gameState.score += score;
+            gameState.roundScores.push(score);
+            
+            // 显示得分动画
+            const scoreElement = document.getElementById(`score-${fruitName}`);
+            scoreElement.textContent = score > 0 ? `+${score}` : score;
+            scoreElement.className = `score-animation ${score > 0 ? 'text-green-600' : 'text-red-600'}`;
+            scoreElement.style.top = '50%';
+            scoreElement.style.left = '50%';
+            scoreElement.style.transform = 'translate(-50%, -50%)';
+            scoreElement.style.opacity = '1';
+            
+            setTimeout(() => {
+                scoreElement.style.opacity = '0';
+                scoreElement.style.transform = 'translate(-50%, -100%)';
+                
+                // 进入下一轮
+                gameState.currentRound++;
+                
+                if (gameState.currentRound > gameState.totalRounds) {
+                    endGame();
+                } else {
+                    generateRules();
+                    renderGameState();
+                    renderFruits();
+                }
+            }, 1000);
+        }
+        
+        // 游戏结束
+        function endGame() {
+            gameState.isGameOver = true;
+            
+            document.getElementById('fruits-container').classList.add('hidden');
+            document.getElementById('game-result').classList.remove('hidden');
+            
+            const totalScore = gameState.score;
+            const resultTitle = document.getElementById('result-title');
+            const resultMessage = document.getElementById('result-message');
+            
+            if (totalScore >= 15) {
+                resultTitle.textContent = '恭喜你，游戏结束！';
+                resultTitle.className = 'text-[clamp(1.5rem,3vw,2rem)] font-bold mb-4 text-green-600';
+                resultMessage.innerHTML = `你的最终得分是 <span class="font-bold text-primary">${totalScore}</span> 分，表现非常出色！`;
+                
+                // 显示小猫动画
+                setTimeout(() => {
+                    document.getElementById('cat-character').className = 'character cat animate-cat';
+                    setTimeout(() => {
+                        document.getElementById('cat-dialog').className = 'character-dialog left-1/2 -translate-x-1/2 bottom-20 show-dialog';
+                    }, 500);
+                }, 500);
+                
+            } else if (totalScore >= 10) {
+                resultTitle.textContent = '游戏结束！';
+                resultTitle.className = 'text-[clamp(1.5rem,3vw,2rem)] font-bold mb-4 text-yellow-600';
+                resultMessage.innerHTML = `你的最终得分是 <span class="font-bold text-primary">${totalScore}</span> 分，继续加油！`;
+                
+                // 显示小麻雀动画
+                setTimeout(() => {
+                    document.getElementById('sparrow-character').className = 'character sparrow animate-sparrow';
+                    setTimeout(() => {
+                        document.getElementById('sparrow-dialog').className = 'character-dialog right-1/4 bottom-1/2 show-dialog';
+                    }, 500);
+                }, 500);
+                
+            } else {
+                resultTitle.textContent = '游戏结束！';
+                resultTitle.className = 'text-[clamp(1.5rem,3vw,2rem)] font-bold mb-4 text-red-600';
+                resultMessage.innerHTML = `你的最终得分是 <span class="font-bold text-primary">${totalScore}</span> 分，下次要小心选择哦！`;
+                
+                // 显示碎鸡蛋动画
+                setTimeout(() => {
+                    document.getElementById('egg-character').className = 'character broken-egg animate-egg';
+                    setTimeout(() => {
+                        document.getElementById('egg-dialog').className = 'character-dialog left-1/2 -translate-x-1/2 top-20 show-dialog';
+                    }, 500);
+                }, 500);
+            }
+            
+            // 添加游戏统计
+            const statsContainer = document.createElement('div');
+            statsContainer.className = 'mt-6 bg-gray-50 p-4 rounded-lg';
+            statsContainer.innerHTML = `
+                <h4 class="font-medium mb-2">游戏统计</h4>
+                <p>总共完成了 ${gameState.totalRounds} 局游戏</p>
+                <p>最高单局得分: ${Math.max(...gameState.roundScores)} 分</p>
+                <p>最低单局得分: ${Math.min(...gameState.roundScores)} 分</p>
+            `;
+            resultMessage.appendChild(statsContainer);
+        }
+        
+        // 事件监听
+        document.getElementById('play-again-btn').addEventListener('click', initGame);
+        
+        // 启动游戏
+        window.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
